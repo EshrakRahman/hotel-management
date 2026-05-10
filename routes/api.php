@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DestinationController;
+use App\Http\Controllers\Api\HotelController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -17,4 +18,6 @@ Route::prefix('auth')->group(function () {
 
 Route::prefix('v1')->group(function () {
     Route::get('/destinations', [DestinationController::class, 'index']);
+    Route::get('/hotels', [HotelController::class, 'index']);
+    Route::get('/hotels/{hotel}', [HotelController::class, 'show']);
 });
