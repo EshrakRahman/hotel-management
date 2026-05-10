@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AmenityController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DestinationController;
 use App\Http\Controllers\Api\HotelController;
@@ -20,4 +21,5 @@ Route::prefix('v1')->group(function () {
     Route::get('/destinations', [DestinationController::class, 'index']);
     Route::get('/hotels', [HotelController::class, 'index']);
     Route::get('/hotels/{hotel}', [HotelController::class, 'show']);
+    Route::get('/amenities', [AmenityController::class, 'index']);
 });

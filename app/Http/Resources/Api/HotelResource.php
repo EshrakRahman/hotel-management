@@ -19,11 +19,12 @@ class HotelResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            'id' => $this->id,
             'name' => $this->name,
             'slug' => $this->slug,
             'address' => $this->address,
             'status' => $this->status,
-            'destination' => new DestinationResource($this->whenLoaded('destination')) ,
+            'destination' => new DestinationMiniResource($this->whenLoaded('destination')) ,
             'room_types' => RoomTypeResource::collection($this->whenLoaded('roomTypes')),
             'cancellation_policy' => new CancellationPolicyResource($this->whenLoaded('cancellationPolicy')),
         ];
