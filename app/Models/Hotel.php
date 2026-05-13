@@ -45,7 +45,13 @@ class Hotel extends Model
 
     public function amenities():belongsToMany
     {
-        return $this->belongsToMany(Amenity::class);
+        return $this->belongsToMany(Amenity::class, 'hotel_amenity', 'hotel_id', 'amenity_id');
+    }
+
+    public function services():hasMany
+    {
+        return $this->hasMany(Service::class);
+
     }
 
     public function scopeFilter(Builder $query, array $filters): Builder

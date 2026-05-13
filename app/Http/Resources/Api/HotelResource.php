@@ -26,6 +26,8 @@ class HotelResource extends JsonResource
             'status' => $this->status,
             'destination' => new DestinationMiniResource($this->whenLoaded('destination')) ,
             'room_types' => RoomTypeResource::collection($this->whenLoaded('roomTypes')),
+            'amenities' => AmenityResource::collection($this->whenLoaded('amenities')),
+            'services' => ServiceResource::collection($this->whenLoaded('services')),
             'cancellation_policy' => new CancellationPolicyResource($this->whenLoaded('cancellationPolicy')),
         ];
     }

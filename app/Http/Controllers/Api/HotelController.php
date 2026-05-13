@@ -14,7 +14,7 @@ class HotelController extends Controller
         $hotels = Hotel::query()
             ->with([
                 'destination',
-                'cancellationPolicy'
+                'cancellationPolicy',
             ])
             ->where('status', 'active')
             ->filter($request->only(['q', 'destination']))
@@ -28,7 +28,7 @@ class HotelController extends Controller
     {
         $hotel = Hotel::where('slug', $slug)
             ->where('status', 'active')
-            ->with(['destination', 'cancellationPolicy', 'roomTypes'])
+            ->with(['destination', 'cancellationPolicy', 'roomTypes', 'amenities', 'services'])
             ->firstOrFail();
 
         return new HotelResource($hotel);

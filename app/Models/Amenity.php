@@ -11,6 +11,6 @@ class Amenity extends Model
 {
     public function hotels():BelongsToMany
     {
-        return $this->belongsToMany(Hotel::class);
+        return $this->belongsToMany(Hotel::class, 'hotel_amenity', 'amenity_id', 'hotel_id');
     }
 }
