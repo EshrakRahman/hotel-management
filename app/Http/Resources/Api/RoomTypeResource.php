@@ -24,6 +24,7 @@ class RoomTypeResource extends JsonResource
             'description' => $this->description,
             'base_price' => $this->base_price,
             'max_occupancy' => $this->max_occupancy,
+            'total_rooms_available' => $this->whenCounted('rooms'),
         ];
     }
 }

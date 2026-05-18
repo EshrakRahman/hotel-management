@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable(['user_id', 'destination_id', 'cancellation_policy_id', 'name', 'slug', 'address', 'latitude', 'longitude', 'status'])]
@@ -52,6 +53,11 @@ class Hotel extends Model
     {
         return $this->hasMany(Service::class);
 
+    }
+
+    public function hotelSetting():hasOne
+    {
+        return $this->hasOne(HotelSetting::class);
     }
 
     public function scopeFilter(Builder $query, array $filters): Builder

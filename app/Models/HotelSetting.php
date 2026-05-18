@@ -5,18 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['name', 'slug', 'description', 'base_price', 'max_occupancy', 'hotel_id' ])]
-class RoomType extends Model
+#[Fillable(['hotel_id', 'checkin_time', 'checkout_time', 'platform_commission'])]
+class HotelSetting extends Model
 {
+    use SoftDeletes;
     public function hotel():belongsTo
     {
         return $this->belongsTo(Hotel::class);
-    }
-
-    public function rooms():hasMany
-    {
-        return $this->hasMany(Room::class);
     }
 }

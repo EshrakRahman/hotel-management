@@ -28,7 +28,16 @@ class HotelController extends Controller
     {
         $hotel = Hotel::where('slug', $slug)
             ->where('status', 'active')
-            ->with(['destination', 'cancellationPolicy', 'roomTypes', 'amenities', 'services'])
+            ->with([
+                'destination',
+                'cancellationPolicy',
+                'roomTypes' => function ($query) {
+                    $query->withCount('rooms');
+                },
+                'amenities',
+                'services',
+                'hotelSetting'
+            ])
             ->firstOrFail();
 
         return new HotelResource($hotel);
