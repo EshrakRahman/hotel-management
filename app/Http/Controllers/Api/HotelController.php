@@ -26,8 +26,11 @@ class HotelController extends Controller
 
     public function show(string $slug)
     {
-        $hotel = Hotel::where('slug', $slug)
-            ->where('status', 'active')
+        $hotel = Hotel::query()
+            ->where([
+                'slug' => $slug,
+                'status' => 'active',
+            ])
             ->with([
                 'destination',
                 'cancellationPolicy',
