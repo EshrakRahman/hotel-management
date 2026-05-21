@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\Enums\RoomStatus;
+use App\Enums\RoomStatus;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;

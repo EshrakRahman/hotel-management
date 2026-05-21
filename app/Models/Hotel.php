@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\HotelStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -12,10 +13,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['user_id', 'destination_id', 'cancellation_policy_id', 'name', 'slug', 'address', 'latitude', 'longitude', 'status'])]
+#[Fillable(['user_id', 'destination_id', 'cancellation_policy_id',
+    'name', 'slug', 'address', 'latitude', 'longitude', 'status'])]
 class Hotel extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, HasFactory;
 
     protected function casts():array
     {

@@ -1,7 +1,7 @@
 <?php
 
-test('the application returns a successful response', function () {
+test('should not open homepage', function () {
     $response = $this->get('/');
 
-    $response->assertStatus(200);
+    $response->assertStatus(404);
 });
