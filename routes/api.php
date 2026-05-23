@@ -21,9 +21,9 @@ Route::prefix('auth')->group(function () {
 Route::prefix('v1')->group(function () {
     Route::get('/destinations', [DestinationController::class, 'index']);
     Route::get('/hotels', [HotelController::class, 'index']);
+    Route::get('/hotels/featured', [HotelController::class, 'featured']);
     Route::get('/hotels/{hotel}', [HotelController::class, 'show']);
     Route::get('/amenities', [AmenityController::class, 'index']);
     Route::get('/room-types/{roomType}/rooms', [RoomController::class, 'index']);
     Route::get('/rooms/{room}', [RoomController::class, 'show']);
-
 });

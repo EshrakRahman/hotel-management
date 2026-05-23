@@ -45,4 +45,19 @@ class HotelController extends Controller
 
         return new HotelResource($hotel);
     }
+
+    public function featured()
+    {
+        $featuredHotel = Hotel::query()
+            ->where('status', 'active')
+            ->inRandomOrder()
+            ->take(5)
+            ->with([
+                'destination',
+                'cancellationPolicy',
+            ])
+            ->get();
+
+        return HotelResource::collection($featuredHotel);
+    }
 }
