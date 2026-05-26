@@ -2,26 +2,25 @@
 
 namespace App\Models;
 
-use App\Enums\RoomStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['room_type_id', 'room_number', 'status'])]
-class Room extends Model
+#[Fillable(['booking_id', 'name', 'email', 'phone', 'is_primary'])]
+class BookingGuest extends Model
 {
     use HasFactory;
 
     protected function casts(): array
     {
         return [
-            'status' => RoomStatus::class,
+            'is_primary' => 'boolean',
         ];
     }
 
-    public function roomType(): BelongsTo
+    public function booking(): BelongsTo
     {
-        return $this->belongsTo(RoomType::class);
+        return $this->belongsTo(Booking::class);
     }
 }

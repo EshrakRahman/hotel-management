@@ -18,13 +18,14 @@ return new class extends Migration
             $table->text('booking_ref');
             $table->foreignId('user_id')->constrained();
             $table->foreignId('hotel_id')->constrained();
-            $table->foreignId('promotion_id')->constrained();
+            $table->foreignId('promotion_id')->nullable()->constrained()->nullOnDelete();
             $table->decimal('total_amount', 10);
             $table->decimal('tax_amount', 10);
             $table->decimal('platform_fee', 10);
             $table->decimal('total_service_amount', 10);
+            $table->decimal('cancellation_penalty', 10)->default(0);
             $table->string('status')->default(BookingStatus::PENDING);
-            $table->string('payment_status')->default(PaymentStatus::PENDING);
+            $table->string('payment_status')->default(paymentStatus::PENDING);
             $table->string('special_request')->nullable();
             $table->softDeletes();
             $table->timestamps();

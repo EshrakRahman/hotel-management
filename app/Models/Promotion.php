@@ -4,13 +4,16 @@ namespace App\Models;
 
 use App\Enums\PromotionsDiscountType;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['name', 'promo_code', 'discount_type', 'discount_value', 'start_date', 'end_date', 'is_active'])]
 class Promotion extends Model
 {
-    protected function casts():array
+    use HasFactory;
+
+    protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
@@ -18,10 +21,8 @@ class Promotion extends Model
         ];
     }
 
-    public function bookings():hasMany
+    public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class);
     }
-
-
 }
