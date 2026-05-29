@@ -18,6 +18,9 @@ Route::prefix('auth')->group(function () {
     });
 });
 
+use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\StripeWebhookController;
+
 Route::prefix('v1')->group(function () {
     Route::get('/destinations', [DestinationController::class, 'index']);
     Route::get('/hotels', [HotelController::class, 'index']);
@@ -27,9 +30,12 @@ Route::prefix('v1')->group(function () {
     Route::get('/room-types/{roomType}/rooms', [RoomController::class, 'index']);
     Route::get('/rooms/{room}', [RoomController::class, 'show']);
 
+    Route::post('/payments/webhook/stripe', [StripeWebhookController::class, 'handle']);
+
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/bookings', [BookingController::class, 'store']);
         Route::get('/bookings/{booking_ref}', [BookingController::class, 'show']);
         Route::post('/bookings/{booking_ref}/cancel', [BookingController::class, 'cancel']);
+        Route::post('/bookings/{booking_ref}/checkout-session', [PaymentController::class, 'checkoutSession']);
     });
 });
