@@ -240,6 +240,203 @@ test('calculates cancellation penalty correctly when outside free cancellation d
     ]);
 });
 
+test('customer can list only their bookings and filter by status', function () {
+    /** @var TestCase $this */
+    Sanctum::actingAs($this->user);
+
+    // Create 2 bookings for this user
+    Booking::factory()->create([
+        'user_id' => $this->user->id,
+        'status' => BookingStatus::CONFIRMED,
+        'hotel_id' => $this->hotel->id,
+    ]);
+    Booking::factory()->create([
+        'user_id' => $this->user->id,
+        'status' => BookingStatus::PENDING,
+        'hotel_id' => $this->hotel->id,
+    ]);
+
+    // Create 1 booking for another user
+    $otherUser = User::factory()->create();
+    Booking::factory()->create([
+        'user_id' => $otherUser->id,
+        'status' => BookingStatus::CONFIRMED,
+        'hotel_id' => $this->hotel->id,
+    ]);
+
+    // Fetch all user bookings
+    $response = $this->getJson('/api/v1/bookings');
+    $response->assertStatus(200)
+        ->assertJsonCount(2, 'data');
+
+    // Fetch user bookings filtered by status=pending
+    $responseFiltered = $this->getJson('/api/v1/bookings?status=pending');
+    $responseFiltered->assertStatus(200)
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.status', 'pending');
+});
+
+test('hotel owner can list bookings for their hotel', function () {
+    /** @var TestCase $this */
+    $owner = User::factory()->create();
+    Role::firstOrCreate(['name' => 'hotel_owner']);
+    $owner->assignRole('hotel_owner');
+
+    // Make the hotel belong to the owner
+    $this->hotel->update(['user_id' => $owner->id]);
+
+    Sanctum::actingAs($owner);
+
+    // Create 2 bookings for this hotel
+    Booking::factory()->create([
+        'hotel_id' => $this->hotel->id,
+        'status' => BookingStatus::CONFIRMED,
+    ]);
+    Booking::factory()->create([
+        'hotel_id' => $this->hotel->id,
+        'status' => BookingStatus::PENDING,
+    ]);
+
+    // Create a booking for another hotel
+    $otherHotel = Hotel::factory()->create();
+    Booking::factory()->create([
+        'hotel_id' => $otherHotel->id,
+        'status' => BookingStatus::CONFIRMED,
+    ]);
+
+    $response = $this->getJson('/api/v1/bookings');
+    $response->assertStatus(200)
+        ->assertJsonCount(2, 'data');
+});
+
+test('admin can list all bookings', function () {
+    /** @var TestCase $this */
+    $admin = User::factory()->create();
+    Role::firstOrCreate(['name' => 'admin']);
+    $admin->assignRole('admin');
+
+    Sanctum::actingAs($admin);
+
+    // Create bookings across different hotels/users
+    Booking::factory()->count(3)->create();
+
+    $response = $this->getJson('/api/v1/bookings');
+    $response->assertStatus(200)
+        ->assertJsonCount(3, 'data');
+});
+
+test('can successfully request a booking quote with correct calculations', function () {
+    /** @var TestCase $this */
+    $service = Service::factory()->create([
+        'hotel_id' => $this->hotel->id,
+        'base_price' => 20.00,
+        'is_active' => true,
+    ]);
+
+    $response = $this->postJson('/api/v1/bookings/quote', [
+        'hotel_id' => $this->hotel->id,
+        'items' => [
+            [
+                'room_type_id' => $this->roomType->id,
+                'check_in' => now()->addDays(1)->format('Y-m-d'),
+                'check_out' => now()->addDays(3)->format('Y-m-d'), // 2 nights * $100 = $200
+            ],
+        ],
+        'services' => [
+            [
+                'service_id' => $service->id,
+                'quantity' => 2, // 2 * $20 = $40
+            ],
+        ],
+    ]);
+
+    $response->assertStatus(200)
+        ->assertJsonStructure([
+            'pricing' => ['room_subtotal', 'service_subtotal', 'tax_amount', 'platform_fee', 'total_amount'],
+            'items',
+            'services',
+        ]);
+
+    // Net: $240.00
+    // Platform fee (10%): $24.00
+    // Tax (10%): $24.00
+    // Total: $288.00
+    expect($response['pricing']['room_subtotal'])->toBe('200.00');
+    expect($response['pricing']['service_subtotal'])->toBe('40.00');
+    expect($response['pricing']['platform_fee'])->toBe('24.00');
+    expect($response['pricing']['tax_amount'])->toBe('24.00');
+    expect($response['pricing']['total_amount'])->toBe('288.00');
+});
+
+test('booking quote applies percentage promotion correctly', function () {
+    /** @var TestCase $this */
+    $promo = Promotion::factory()->create([
+        'discount_type' => PromotionsDiscountType::PERCENTAGE,
+        'discount_value' => 10.00,
+        'start_date' => now()->subDay(),
+        'end_date' => now()->addDay(),
+        'is_active' => true,
+    ]);
+
+    $response = $this->postJson('/api/v1/bookings/quote', [
+        'hotel_id' => $this->hotel->id,
+        'promotion_id' => $promo->id,
+        'items' => [
+            [
+                'room_type_id' => $this->roomType->id,
+                'check_in' => now()->addDays(1)->format('Y-m-d'),
+                'check_out' => now()->addDays(2)->format('Y-m-d'), // 1 night = $100
+            ],
+        ],
+    ]);
+
+    $response->assertStatus(200);
+
+    // Room Subtotal: $100.00
+    // Discount: $10.00
+    // Net: $90.00
+    // Platform fee (10%): $9.00
+    // Tax (10%): $9.00
+    // Total: $108.00
+    expect($response['pricing']['discount_amount'])->toBe('10.00');
+    expect($response['pricing']['total_amount'])->toBe('108.00');
+});
+
+test('booking quote fails when rooms are unavailable for dates', function () {
+    /** @var TestCase $this */
+    $checkIn = now()->addDays(1)->format('Y-m-d');
+    $checkOut = now()->addDays(3)->format('Y-m-d');
+
+    // Occupy both rooms for these dates
+    createBookingForRoom($this->room1, $checkIn, $checkOut);
+    createBookingForRoom($this->room2, $checkIn, $checkOut);
+
+    $response = $this->postJson('/api/v1/bookings/quote', [
+        'hotel_id' => $this->hotel->id,
+        'items' => [
+            [
+                'room_type_id' => $this->roomType->id,
+                'check_in' => $checkIn,
+                'check_out' => $checkOut,
+            ],
+        ],
+    ]);
+
+    $response->assertStatus(422)
+        ->assertJsonValidationErrors(['items.0.room_type_id']);
+});
+
+test('booking quote validates request parameters', function () {
+    /** @var TestCase $this */
+    $response = $this->postJson('/api/v1/bookings/quote', [
+        'hotel_id' => '',
+        'items' => [],
+    ]);
+
+    $response->assertStatus(422)
+        ->assertJsonValidationErrors(['hotel_id', 'items']);
+});
+
 // Helper function to create overlapping bookings
 function createBookingForRoom(Room $room, string $checkIn, string $checkOut): void
 {

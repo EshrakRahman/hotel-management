@@ -34,148 +34,42 @@ class BookingService
             $hotelId = $data['hotel_id'];
             $hotel = Hotel::findOrFail($hotelId);
 
-            // 1. Perform availability verification & room allocation
-            $allocatedRooms = []; // room_type_id => Array of assigned Room models
-            $roomSubtotal = 0.00;
+            $pricingData = $this->calculatePricing(
+                $hotel,
+                $data['items'],
+                $data['services'] ?? [],
+                $data['promotion_id'] ?? null,
+                true // lock rooms for update
+            );
 
-            foreach ($data['items'] as $index => $itemData) {
-                $roomTypeId = $itemData['room_type_id'];
-                $checkIn = $itemData['check_in'];
-                $checkOut = $itemData['check_out'];
-
-                $roomType = RoomType::where('hotel_id', $hotelId)->findOrFail($roomTypeId);
-
-                // Find rooms currently booked/held for this date range
-                $bookedRoomIds = BookingItem::where('room_type_id', $roomTypeId)
-                    ->where('check_in', '<', $checkOut)
-                    ->where('check_out', '>', $checkIn)
-                    ->whereHas('booking', function ($query) {
-                        $query->whereIn('status', [BookingStatus::CONFIRMED, BookingStatus::PENDING])
-                            ->where('created_at', '>=', now()->subMinutes(15));
-                    })
-                    ->whereNotNull('room_id')
-                    ->pluck('room_id')
-                    ->toArray();
-
-                // Select available rooms and lock them to serialize concurrent checkouts
-                $availableRooms = Room::where('room_type_id', $roomTypeId)
-                    ->where('status', RoomStatus::AVAILABLE)
-                    ->whereNotIn('id', $bookedRoomIds)
-                    ->lockForUpdate()
-                    ->get();
-
-                // Exclude rooms already allocated to other items in the same request payload
-                $unusedRooms = $availableRooms->reject(function ($r) use ($allocatedRooms, $roomTypeId) {
-                    return in_array($r->id, array_column($allocatedRooms[$roomTypeId] ?? [], 'id'));
-                });
-
-                if ($unusedRooms->isEmpty()) {
-                    throw ValidationException::withMessages([
-                        "items.{$index}.room_type_id" => "No rooms of type {$roomType->name} are available for the selected dates.",
-                    ]);
-                }
-
-                $assignedRoom = $unusedRooms->first();
-                $allocatedRooms[$roomTypeId][] = $assignedRoom;
-
-                // Calculate nights and subtotal
-                $nights = Carbon::parse($checkIn)->diffInDays(Carbon::parse($checkOut));
-                $subtotal = $roomType->base_price * $nights;
-                $roomSubtotal += $subtotal;
-            }
-
-            // 2. Calculate service subtotals
-            $serviceSubtotal = 0.00;
-            $serviceItems = []; // Array of arrays with details to insert
-            if (! empty($data['services'])) {
-                foreach ($data['services'] as $index => $serviceData) {
-                    $service = Service::where('hotel_id', $hotelId)->where('is_active', true)->findOrFail($serviceData['service_id']);
-                    $qty = $serviceData['quantity'];
-                    $price = $service->base_price;
-                    $sub = $price * $qty;
-                    $serviceSubtotal += $sub;
-
-                    $serviceItems[] = [
-                        'serviceable_id' => $service->id,
-                        'serviceable_type' => Service::class,
-                        'price_at_booking' => $price,
-                        'quantity' => $qty,
-                    ];
-                }
-            }
-
-            // 3. Calculate promotion discount
-            $discountAmount = 0.00;
-            $promotionId = $data['promotion_id'] ?? null;
-            if ($promotionId) {
-                $promotion = Promotion::where('is_active', true)
-                    ->where('start_date', '<=', now())
-                    ->where('end_date', '>=', now())
-                    ->findOrFail($promotionId);
-
-                // Discount applies to rooms subtotal
-                if ($promotion->discount_type === PromotionsDiscountType::PERCENTAGE) {
-                    $discountAmount = ($roomSubtotal * ($promotion->discount_value / 100));
-                } else {
-                    $discountAmount = min($promotion->discount_value, $roomSubtotal);
-                }
-            }
-
-            // 4. Calculate fees and taxes
-            // Platform commission
-            $commissionRate = 10.00; // default 10%
-            if ($hotel->hotelSetting) {
-                $commissionRate = $hotel->hotelSetting->platform_commission;
-            }
-            $netAmount = max(0, ($roomSubtotal + $serviceSubtotal - $discountAmount));
-            $platformFee = $netAmount * ($commissionRate / 100);
-
-            // Taxes (e.g. flat 10%)
-            $taxAmount = $netAmount * 0.10;
-
-            // Final billing amount
-            $totalAmount = $netAmount + $taxAmount + $platformFee;
-
-            // 5. Generate Booking record
+            // Create Booking record
             $bookingRef = strtoupper(sprintf('BK-%s-%s', now()->format('Ymd'), Str::random(4)));
 
             $booking = Booking::create([
                 'booking_ref' => $bookingRef,
                 'user_id' => $user->id,
                 'hotel_id' => $hotelId,
-                'promotion_id' => $promotionId,
-                'total_amount' => $totalAmount,
-                'tax_amount' => $taxAmount,
-                'platform_fee' => $platformFee,
-                'total_service_amount' => $serviceSubtotal,
+                'promotion_id' => $pricingData['promotion'] ? $pricingData['promotion']->id : null,
+                'total_amount' => $pricingData['pricing']['total_amount'],
+                'tax_amount' => $pricingData['pricing']['tax_amount'],
+                'platform_fee' => $pricingData['pricing']['platform_fee'],
+                'total_service_amount' => $pricingData['pricing']['service_subtotal'],
                 'status' => BookingStatus::PENDING,
                 'payment_status' => paymentStatus::PENDING,
                 'special_request' => $data['special_requests'] ?? null,
             ]);
 
             // Save booking items
-            $roomAllocationCount = [];
-            foreach ($data['items'] as $itemData) {
-                $roomTypeId = $itemData['room_type_id'];
-                $checkIn = $itemData['check_in'];
-                $checkOut = $itemData['check_out'];
-
-                $roomType = RoomType::findOrFail($roomTypeId);
-                $nights = Carbon::parse($checkIn)->diffInDays(Carbon::parse($checkOut));
-
-                $allocationIndex = $roomAllocationCount[$roomTypeId] ?? 0;
-                $room = $allocatedRooms[$roomTypeId][$allocationIndex];
-                $roomAllocationCount[$roomTypeId] = $allocationIndex + 1;
-
+            foreach ($pricingData['items'] as $item) {
                 BookingItem::create([
                     'booking_id' => $booking->id,
-                    'room_type_id' => $roomTypeId,
-                    'room_id' => $room->id,
-                    'check_in' => $checkIn,
-                    'check_out' => $checkOut,
-                    'price_at_booking' => $roomType->base_price,
-                    'nights' => $nights,
-                    'subtotal' => $roomType->base_price * $nights,
+                    'room_type_id' => $item['room_type_id'],
+                    'room_id' => $item['assigned_room']->id,
+                    'check_in' => $item['check_in'],
+                    'check_out' => $item['check_out'],
+                    'price_at_booking' => $item['price_per_night'],
+                    'nights' => $item['nights'],
+                    'subtotal' => $item['subtotal'],
                 ]);
             }
 
@@ -191,17 +85,184 @@ class BookingService
             }
 
             // Save booking services
-            foreach ($serviceItems as $sItem) {
-                BookingServiceModel::create(array_merge(['booking_id' => $booking->id], $sItem));
+            foreach ($pricingData['services'] as $sItem) {
+                BookingServiceModel::create([
+                    'booking_id' => $booking->id,
+                    'serviceable_id' => $sItem['service_id'],
+                    'serviceable_type' => Service::class,
+                    'price_at_booking' => $sItem['price'],
+                    'quantity' => $sItem['quantity'],
+                ]);
             }
 
             // Load relationships before returning
             $booking->load(['bookingItems.roomType', 'bookingItems.room', 'bookingGuests', 'bookingServices.serviceable']);
 
-            // Event placeholder: event(new BookingCreated($booking));
-
             return $booking;
         });
+    }
+
+    /**
+     * Generate a price quote for a potential booking.
+     *
+     * @throws ValidationException
+     */
+    public function getQuote(array $data): array
+    {
+        $hotel = Hotel::findOrFail($data['hotel_id']);
+
+        $pricingData = $this->calculatePricing(
+            $hotel,
+            $data['items'],
+            $data['services'] ?? [],
+            $data['promotion_id'] ?? null,
+            false // do not lock rooms for update
+        );
+
+        return [
+            'pricing' => $pricingData['pricing'],
+            'items' => array_map(function ($item) {
+                unset($item['assigned_room']);
+
+                return $item;
+            }, $pricingData['items']),
+            'services' => $pricingData['services'],
+        ];
+    }
+
+    /**
+     * Calculate room subtotals, service subtotals, discounts, taxes, fees, and verify availability.
+     *
+     * @throws ValidationException
+     */
+    protected function calculatePricing(Hotel $hotel, array $items, array $services = [], ?int $promotionId = null, bool $lockRooms = false): array
+    {
+        $allocatedRooms = []; // room_type_id => Array of assigned Room models
+        $roomSubtotal = 0.00;
+        $roomDetails = [];
+
+        foreach ($items as $index => $itemData) {
+            $roomTypeId = $itemData['room_type_id'];
+            $checkIn = $itemData['check_in'];
+            $checkOut = $itemData['check_out'];
+
+            $roomType = RoomType::where('hotel_id', $hotel->id)->findOrFail($roomTypeId);
+
+            // Find rooms currently booked/held for this date range
+            $bookedRoomIds = BookingItem::where('room_type_id', $roomTypeId)
+                ->where('check_in', '<', $checkOut)
+                ->where('check_out', '>', $checkIn)
+                ->whereHas('booking', function ($query) {
+                    $query->whereIn('status', [BookingStatus::CONFIRMED, BookingStatus::PENDING])
+                        ->where('created_at', '>=', now()->subMinutes(15));
+                })
+                ->whereNotNull('room_id')
+                ->pluck('room_id')
+                ->toArray();
+
+            // Select available rooms
+            $availableRoomsQuery = Room::where('room_type_id', $roomTypeId)
+                ->where('status', RoomStatus::AVAILABLE)
+                ->whereNotIn('id', $bookedRoomIds);
+
+            if ($lockRooms) {
+                $availableRoomsQuery->lockForUpdate();
+            }
+
+            $availableRooms = $availableRoomsQuery->get();
+
+            // Exclude rooms already allocated to other items in the same request payload
+            $unusedRooms = $availableRooms->reject(function ($r) use ($allocatedRooms, $roomTypeId) {
+                return in_array($r->id, array_column($allocatedRooms[$roomTypeId] ?? [], 'id'));
+            });
+
+            if ($unusedRooms->isEmpty()) {
+                throw ValidationException::withMessages([
+                    "items.{$index}.room_type_id" => "No rooms of type {$roomType->name} are available for the selected dates.",
+                ]);
+            }
+
+            $assignedRoom = $unusedRooms->first();
+            $allocatedRooms[$roomTypeId][] = $assignedRoom;
+
+            // Calculate nights and subtotal
+            $nights = Carbon::parse($checkIn)->diffInDays(Carbon::parse($checkOut));
+            $subtotal = $roomType->base_price * $nights;
+            $roomSubtotal += $subtotal;
+
+            $roomDetails[] = [
+                'room_type_id' => $roomTypeId,
+                'room_type_name' => $roomType->name,
+                'check_in' => $checkIn,
+                'check_out' => $checkOut,
+                'nights' => $nights,
+                'price_per_night' => number_format($roomType->base_price, 2, '.', ''),
+                'subtotal' => number_format($subtotal, 2, '.', ''),
+                'assigned_room' => $assignedRoom,
+            ];
+        }
+
+        // 2. Calculate service subtotals
+        $serviceSubtotal = 0.00;
+        $serviceDetails = [];
+        foreach ($services as $serviceData) {
+            $service = Service::where('hotel_id', $hotel->id)->where('is_active', true)->findOrFail($serviceData['service_id']);
+            $qty = $serviceData['quantity'];
+            $price = $service->base_price;
+            $sub = $price * $qty;
+            $serviceSubtotal += $sub;
+
+            $serviceDetails[] = [
+                'service_id' => $service->id,
+                'name' => $service->name,
+                'price' => number_format($price, 2, '.', ''),
+                'quantity' => $qty,
+                'subtotal' => number_format($sub, 2, '.', ''),
+            ];
+        }
+
+        // 3. Calculate promotion discount
+        $discountAmount = 0.00;
+        $promotion = null;
+        if ($promotionId) {
+            $promotion = Promotion::where('is_active', true)
+                ->where('start_date', '<=', now())
+                ->where('end_date', '>=', now())
+                ->findOrFail($promotionId);
+
+            // Discount applies to rooms subtotal
+            if ($promotion->discount_type === PromotionsDiscountType::PERCENTAGE) {
+                $discountAmount = ($roomSubtotal * ($promotion->discount_value / 100));
+            } else {
+                $discountAmount = min($promotion->discount_value, $roomSubtotal);
+            }
+        }
+
+        // 4. Calculate fees and taxes
+        $commissionRate = 10.00; // default 10%
+        if ($hotel->hotelSetting) {
+            $commissionRate = $hotel->hotelSetting->platform_commission;
+        }
+        $netAmount = max(0, ($roomSubtotal + $serviceSubtotal - $discountAmount));
+        $platformFee = $netAmount * ($commissionRate / 100);
+        $taxAmount = $netAmount * 0.10;
+        $totalAmount = $netAmount + $taxAmount + $platformFee;
+
+        return [
+            'pricing' => [
+                'room_subtotal' => number_format($roomSubtotal, 2, '.', ''),
+                'service_subtotal' => number_format($serviceSubtotal, 2, '.', ''),
+                'discount_amount' => number_format($discountAmount, 2, '.', ''),
+                'net_amount' => number_format($netAmount, 2, '.', ''),
+                'platform_fee' => number_format($platformFee, 2, '.', ''),
+                'tax_amount' => number_format($taxAmount, 2, '.', ''),
+                'total_amount' => number_format($totalAmount, 2, '.', ''),
+            ],
+            'items' => $roomDetails,
+            'services' => $serviceDetails,
+            'allocated_rooms' => $allocatedRooms,
+            'promotion' => $promotion,
+        ];
     }
 
     /**

@@ -1,19 +1,18 @@
 <?php
 
 use App\Models\User;
-use Database\Seeders\RoleSeeder;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Role;
+use Tests\TestCase;
 
 beforeEach(function () {
     Role::create(['name' => 'customer']);
 });
 
-
 describe('auth check', function () {
     test('registers a new user', function () {
 
-        /** @var Tests\TestCase $this */
+        /** @var TestCase $this */
         $response = $this->postJson('/api/auth/register', [
             'name' => 'John Doe',
             'email' => 'john@example.com',
@@ -26,7 +25,7 @@ describe('auth check', function () {
     });
 
     test('log in with valid credentials', function () {
-        /** @var Tests\TestCase $this */
+        /** @var TestCase $this */
         $response = $this->postJson('/api/auth/register', [
             'name' => 'John Doe',
             'email' => 'john@example.com',
@@ -44,7 +43,7 @@ describe('auth check', function () {
     });
 
     test('returns 422 for invalid credentials', function () {
-        /** @var Tests\TestCase $this */
+        /** @var TestCase $this */
         $login = $this->postJson('/api/auth/login', [
             'email' => 'john@example.com',
             'password' => 'password',
@@ -57,7 +56,7 @@ describe('auth check', function () {
     test('returns authenticated user', function () {
         // This simulates "acting as" an authenticated user
         Sanctum::actingAs(User::factory()->create());
-        /** @var Tests\TestCase $this */
+        /** @var TestCase $this */
         $response = $this->getJson('/api/auth/me');
 
         $response->assertStatus(200)
@@ -65,13 +64,86 @@ describe('auth check', function () {
     });
 
     test('logs out authenticated user', function () {
-        /** @var Tests\TestCase $this */
+        /** @var TestCase $this */
         Sanctum::actingAs(User::factory()->create());
 
-        /** @var Tests\TestCase $this */
+        /** @var TestCase $this */
         $response = $this->postJson('/api/auth/logout');
 
         $response->assertStatus(200)
             ->assertJson(['message' => 'Logged out successfully']);
+    });
+
+    test('updates user profile details successfully', function () {
+        /** @var TestCase $this */
+        $user = User::factory()->create([
+            'name' => 'Original Name',
+            'phone' => '123456789',
+        ]);
+        Sanctum::actingAs($user);
+
+        $response = $this->putJson('/api/auth/profile', [
+            'name' => 'Updated Name',
+            'phone' => '987654321',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.name', 'Updated Name')
+            ->assertJsonPath('data.phone', '987654321');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'name' => 'Updated Name',
+            'phone' => '987654321',
+        ]);
+    });
+
+    test('validates user profile inputs', function () {
+        /** @var TestCase $this */
+        Sanctum::actingAs(User::factory()->create());
+
+        $response = $this->putJson('/api/auth/profile', [
+            'name' => '', // blank name
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['name']);
+    });
+
+    test('updates user password successfully', function () {
+        /** @var TestCase $this */
+        $user = User::factory()->create([
+            'password' => Hash::make('old_password'),
+        ]);
+        Sanctum::actingAs($user);
+
+        $response = $this->putJson('/api/auth/password', [
+            'current_password' => 'old_password',
+            'password' => 'new_password_123',
+            'password_confirmation' => 'new_password_123',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJson(['message' => 'Password updated successfully.']);
+
+        $user->refresh();
+        expect(Hash::check('new_password_123', $user->password))->toBeTrue();
+    });
+
+    test('fails to update user password with invalid current password', function () {
+        /** @var TestCase $this */
+        $user = User::factory()->create([
+            'password' => Hash::make('old_password'),
+        ]);
+        Sanctum::actingAs($user);
+
+        $response = $this->putJson('/api/auth/password', [
+            'current_password' => 'wrong_password',
+            'password' => 'new_password_123',
+            'password_confirmation' => 'new_password_123',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['current_password']);
     });
 });
