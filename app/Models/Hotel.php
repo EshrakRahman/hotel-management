@@ -17,49 +17,54 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'name', 'slug', 'address', 'latitude', 'longitude', 'status'])]
 class Hotel extends Model
 {
-    use SoftDeletes, HasFactory;
+    use HasFactory, SoftDeletes;
 
-    protected function casts():array
+    protected function casts(): array
     {
         return [
             'status' => HotelStatus::class,
         ];
     }
 
-    public function user():BelongsTo
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function destination():BelongsTo
+    public function destination(): BelongsTo
     {
         return $this->belongsTo(Destination::class);
     }
 
-    public function cancellationPolicy():BelongsTo
+    public function cancellationPolicy(): BelongsTo
     {
         return $this->belongsTo(CancellationPolicy::class);
     }
 
-    public function roomTypes():hasMany
+    public function roomTypes(): HasMany
     {
         return $this->hasMany(RoomType::class);
     }
 
-    public function amenities():belongsToMany
+    public function amenities(): BelongsToMany
     {
         return $this->belongsToMany(Amenity::class, 'hotel_amenity', 'hotel_id', 'amenity_id');
     }
 
-    public function services():hasMany
+    public function services(): HasMany
     {
         return $this->hasMany(Service::class);
 
     }
 
-    public function hotelSetting():hasOne
+    public function hotelSetting(): HasOne
     {
         return $this->hasOne(HotelSetting::class);
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
     }
 
     public function scopeFilter(Builder $query, array $filters): Builder
@@ -80,4 +85,5 @@ class Hotel extends Model
         });
 
         return $query;
-    }}
+    }
+}

@@ -18,6 +18,8 @@ class HotelController extends Controller
                 'destination',
                 'cancellationPolicy',
             ])
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews')
             ->where('status', 'active')
             ->filter($request->only(['q', 'destination']));
 
@@ -58,6 +60,8 @@ class HotelController extends Controller
                 'slug' => $slug,
                 'status' => 'active',
             ])
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews')
             ->with([
                 'destination',
                 'cancellationPolicy',
@@ -83,6 +87,8 @@ class HotelController extends Controller
                 'destination',
                 'cancellationPolicy',
             ])
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews')
             ->get();
 
         return HotelResource::collection($featuredHotel);

@@ -30,6 +30,8 @@ class HotelResource extends JsonResource
             'amenities' => AmenityResource::collection($this->whenLoaded('amenities')),
             'services' => ServiceResource::collection($this->whenLoaded('services')),
             'cancellation_policy' => new CancellationPolicyResource($this->whenLoaded('cancellationPolicy')),
+            'average_rating' => isset($this->reviews_avg_rating) ? number_format((float) $this->reviews_avg_rating, 1, '.', '') : null,
+            'reviews_count' => isset($this->reviews_count) ? (int) $this->reviews_count : 0,
         ];
     }
 }

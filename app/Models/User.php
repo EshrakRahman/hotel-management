@@ -19,7 +19,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, SoftDeletes, HasRoles, HasApiTokens;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable, SoftDeletes;
 
     /**
      * Get the attributes that should be cast.
@@ -34,10 +34,13 @@ class User extends Authenticatable
         ];
     }
 
-    public function hotels():hasMany
+    public function hotels(): HasMany
     {
         return $this->hasMany(Hotel::class);
     }
 
-
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
 }
