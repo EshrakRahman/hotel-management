@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\RoomController;
+use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -35,6 +36,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/promotions/verify', [PromotionController::class, 'verify']);
     Route::post('/bookings/quote', [BookingController::class, 'quote']);
     Route::get('/hotels/{hotel}/reviews', [ReviewController::class, 'index']);
+    Route::get('/hotels/{hotel}/services', [ServiceController::class, 'index']);
 
     Route::post('/payments/webhook/stripe', [StripeWebhookController::class, 'handle']);
 
