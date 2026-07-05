@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 use Illuminate\Support\Facades\Schedule;
 
 Schedule::command('bookings:release-expired-holds')->everyMinute();
+Schedule::command('bookings:complete-past-stays')->daily();
