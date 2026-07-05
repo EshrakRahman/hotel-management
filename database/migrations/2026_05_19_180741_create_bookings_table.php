@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\BookingStatus;
-use App\Enums\paymentStatus;
+use App\Enums\PaymentStatus;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -25,7 +25,7 @@ return new class extends Migration
             $table->decimal('total_service_amount', 10);
             $table->decimal('cancellation_penalty', 10)->default(0);
             $table->string('status')->default(BookingStatus::PENDING);
-            $table->string('payment_status')->default(paymentStatus::PENDING);
+            $table->string('payment_status')->default(PaymentStatus::PENDING);
             $table->string('special_request')->nullable();
             $table->softDeletes();
             $table->timestamps();

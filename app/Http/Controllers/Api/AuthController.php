@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\UpdatePasswordRequest;
+use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Http\Resources\Api\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -64,16 +66,11 @@ class AuthController extends Controller
     /**
      * Update the authenticated user's profile information.
      */
-    public function updateProfile(Request $request): UserResource
+    public function updateProfile(UpdateProfileRequest $request): UserResource
     {
         $user = $request->user();
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:30'],
-        ]);
-
-        $user->update($validated);
+        $user->update($request->validated());
 
         return new UserResource($user->load('roles'));
     }
@@ -81,17 +78,12 @@ class AuthController extends Controller
     /**
      * Update the authenticated user's password.
      */
-    public function updatePassword(Request $request): JsonResponse
+    public function updatePassword(UpdatePasswordRequest $request): JsonResponse
     {
         $user = $request->user();
 
-        $validated = $request->validate([
-            'current_password' => ['required', 'current_password'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-        ]);
-
         $user->update([
-            'password' => Hash::make($validated['password']),
+            'password' => Hash::make($request->validated('password')),
         ]);
 
         return response()->json([

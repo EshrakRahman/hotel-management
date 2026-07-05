@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\HotelStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\ServiceResource;
 use App\Models\Hotel;
@@ -12,7 +13,7 @@ class ServiceController extends Controller
     public function index(string $hotelSlug): AnonymousResourceCollection
     {
         $hotel = Hotel::where('slug', $hotelSlug)
-            ->where('status', 'active')
+            ->where('status', HotelStatus::ACTIVE)
             ->firstOrFail();
 
         $services = $hotel->services()

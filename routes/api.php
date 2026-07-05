@@ -43,9 +43,9 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/bookings', [BookingController::class, 'index']);
         Route::post('/bookings', [BookingController::class, 'store']);
-        Route::get('/bookings/{booking_ref}', [BookingController::class, 'show']);
-        Route::post('/bookings/{booking_ref}/cancel', [BookingController::class, 'cancel']);
-        Route::post('/bookings/{booking_ref}/checkout-session', [PaymentController::class, 'checkoutSession']);
-        Route::post('/bookings/{booking_ref}/reviews', [ReviewController::class, 'store']);
+        Route::get('/bookings/{booking}', [BookingController::class, 'show']);
+        Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel']);
+        Route::post('/bookings/{booking}/checkout-session', [PaymentController::class, 'checkoutSession']);
+        Route::post('/bookings/{booking}/reviews', [ReviewController::class, 'store']);
     });
 });

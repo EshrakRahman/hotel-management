@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\BookingStatus;
-use App\Enums\paymentStatus;
+use App\Enums\PaymentStatus;
 use App\Enums\RoomStatus;
 use App\Models\Booking;
 use App\Models\BookingItem;
@@ -46,7 +46,7 @@ test('customer can successfully create checkout session with mock driver', funct
         'user_id' => $this->user->id,
         'hotel_id' => $this->hotel->id,
         'status' => BookingStatus::PENDING,
-        'payment_status' => paymentStatus::PENDING,
+        'payment_status' => PaymentStatus::PENDING,
         'total_amount' => 200.00,
     ]);
 
@@ -75,7 +75,7 @@ test('stripe webhook checkout completed event confirms booking', function () {
         'user_id' => $this->user->id,
         'hotel_id' => $this->hotel->id,
         'status' => BookingStatus::PENDING,
-        'payment_status' => paymentStatus::PENDING,
+        'payment_status' => PaymentStatus::PENDING,
         'total_amount' => 200.00,
     ]);
 
@@ -123,7 +123,7 @@ test('expired holds are automatically cancelled by release holds command', funct
         'user_id' => $this->user->id,
         'hotel_id' => $this->hotel->id,
         'status' => BookingStatus::PENDING,
-        'payment_status' => paymentStatus::PENDING,
+        'payment_status' => PaymentStatus::PENDING,
         'total_amount' => 100.00,
         'created_at' => now()->subMinutes(20),
     ]);
@@ -133,7 +133,7 @@ test('expired holds are automatically cancelled by release holds command', funct
         'user_id' => $this->user->id,
         'hotel_id' => $this->hotel->id,
         'status' => BookingStatus::PENDING,
-        'payment_status' => paymentStatus::PENDING,
+        'payment_status' => PaymentStatus::PENDING,
         'total_amount' => 100.00,
         'created_at' => now()->subMinutes(2),
     ]);

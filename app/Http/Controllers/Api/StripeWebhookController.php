@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\BookingStatus;
-use App\Enums\paymentStatus;
+use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Payment;
@@ -85,7 +85,7 @@ class StripeWebhookController extends Controller
             // Confirm the booking
             $booking->update([
                 'status' => BookingStatus::CONFIRMED,
-                'payment_status' => paymentStatus::PAID,
+                'payment_status' => PaymentStatus::PAID,
             ]);
 
             // Save the payment transaction details
@@ -129,7 +129,7 @@ class StripeWebhookController extends Controller
         DB::transaction(function () use ($booking, $payment, $charge) {
             $booking->update([
                 'status' => BookingStatus::CANCELLED,
-                'payment_status' => paymentStatus::REFUNDED,
+                'payment_status' => PaymentStatus::REFUNDED,
             ]);
 
             $payment->update([

@@ -3,8 +3,7 @@
 namespace App\Services;
 
 use App\Enums\BookingStatus;
-use App\Enums\paymentStatus;
-use App\Enums\PromotionsDiscountType;
+use App\Enums\PaymentStatus;
 use App\Enums\RoomStatus;
 use App\Models\Booking;
 use App\Models\BookingGuest;
@@ -55,7 +54,7 @@ class BookingService
                 'platform_fee' => $pricingData['pricing']['platform_fee'],
                 'total_service_amount' => $pricingData['pricing']['service_subtotal'],
                 'status' => BookingStatus::PENDING,
-                'payment_status' => paymentStatus::PENDING,
+                'payment_status' => PaymentStatus::PENDING,
                 'special_request' => $data['special_requests'] ?? null,
             ]);
 
@@ -231,11 +230,7 @@ class BookingService
                 ->findOrFail($promotionId);
 
             // Discount applies to rooms subtotal
-            if ($promotion->discount_type === PromotionsDiscountType::PERCENTAGE) {
-                $discountAmount = ($roomSubtotal * ($promotion->discount_value / 100));
-            } else {
-                $discountAmount = min($promotion->discount_value, $roomSubtotal);
-            }
+            $discountAmount = $promotion->calculateDiscount($roomSubtotal);
         }
 
         // 4. Calculate fees and taxes

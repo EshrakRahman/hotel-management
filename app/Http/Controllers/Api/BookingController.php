@@ -8,9 +8,9 @@ use App\Http\Requests\Api\StoreBookingRequest;
 use App\Http\Resources\Api\BookingResource;
 use App\Models\Booking;
 use App\Services\BookingService;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class BookingController extends Controller
 {
@@ -74,13 +74,11 @@ class BookingController extends Controller
     /**
      * Display the specified reservation by booking reference.
      */
-    public function show(string $bookingRef): BookingResource
+    public function show(Booking $booking): BookingResource
     {
-        $booking = Booking::where('booking_ref', $bookingRef)
-            ->with(['bookingItems.roomType', 'bookingItems.room', 'bookingGuests', 'bookingServices.serviceable', 'hotel'])
-            ->firstOrFail();
+        Gate::authorize('view', $booking);
 
-        $this->authorizeAccess($booking);
+        $booking->load(['bookingItems.roomType', 'bookingItems.room', 'bookingGuests', 'bookingServices.serviceable', 'hotel']);
 
         return new BookingResource($booking);
     }
@@ -88,43 +86,14 @@ class BookingController extends Controller
     /**
      * Cancel the specified reservation by booking reference.
      */
-    public function cancel(string $bookingRef, BookingService $bookingService): BookingResource
+    public function cancel(Booking $booking, BookingService $bookingService): BookingResource
     {
-        $booking = Booking::where('booking_ref', $bookingRef)
-            ->with(['bookingItems.roomType', 'bookingItems.room', 'bookingGuests', 'bookingServices.serviceable', 'hotel'])
-            ->firstOrFail();
+        Gate::authorize('cancel', $booking);
 
-        $this->authorizeAccess($booking);
+        $booking->load(['bookingItems.roomType', 'bookingItems.room', 'bookingGuests', 'bookingServices.serviceable', 'hotel']);
 
         $booking = $bookingService->cancelBooking($booking);
 
         return new BookingResource($booking);
-    }
-
-    /**
-     * Authorize that the current authenticated user can access the booking.
-     *
-     * @throws AuthorizationException
-     */
-    private function authorizeAccess(Booking $booking): void
-    {
-        $user = auth()->user();
-
-        // Admin can access everything
-        if ($user->hasRole('admin')) {
-            return;
-        }
-
-        // Customer owns the booking
-        if ($booking->user_id === $user->id) {
-            return;
-        }
-
-        // Hotelier owns the hotel
-        if ($booking->hotel->user_id === $user->id) {
-            return;
-        }
-
-        abort(403, 'This action is unauthorized.');
     }
 }

@@ -2,8 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\BookingStatus;
-use App\Enums\RoomStatus;
+use App\Enums\HotelStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\HotelResource;
 use App\Models\Hotel;
@@ -20,7 +19,7 @@ class HotelController extends Controller
             ])
             ->withAvg('reviews', 'rating')
             ->withCount('reviews')
-            ->where('status', 'active')
+            ->where('status', HotelStatus::ACTIVE)
             ->filter($request->only(['q', 'destination']));
 
         if ($request->has(['check_in', 'check_out'])) {
@@ -28,19 +27,7 @@ class HotelController extends Controller
             $checkOut = $request->input('check_out');
 
             // Filter hotels with at least one room type that has at least one vacant room
-            $hotelsQuery->whereHas('roomTypes', function ($query) use ($checkIn, $checkOut) {
-                $query->whereHas('rooms', function ($q) use ($checkIn, $checkOut) {
-                    $q->where('status', RoomStatus::AVAILABLE)
-                        ->whereDoesntHave('bookingItems', function ($bQuery) use ($checkIn, $checkOut) {
-                            $bQuery->where('check_in', '<', $checkOut)
-                                ->where('check_out', '>', $checkIn)
-                                ->whereHas('booking', function ($b) {
-                                    $b->whereIn('status', [BookingStatus::CONFIRMED, BookingStatus::PENDING])
-                                        ->where('created_at', '>=', now()->subMinutes(15));
-                                });
-                        });
-                });
-            });
+            $hotelsQuery->availableBetween($checkIn, $checkOut);
 
             // Eager load room types with count of rooms so available count works without N+1
             $hotelsQuery->with(['roomTypes' => function ($query) {
@@ -58,7 +45,7 @@ class HotelController extends Controller
         $hotel = Hotel::query()
             ->where([
                 'slug' => $slug,
-                'status' => 'active',
+                'status' => HotelStatus::ACTIVE,
             ])
             ->withAvg('reviews', 'rating')
             ->withCount('reviews')
@@ -80,7 +67,7 @@ class HotelController extends Controller
     public function featured()
     {
         $featuredHotel = Hotel::query()
-            ->where('status', 'active')
+            ->where('status', HotelStatus::ACTIVE)
             ->inRandomOrder()
             ->take(5)
             ->with([

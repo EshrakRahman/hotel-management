@@ -25,4 +25,18 @@ class Promotion extends Model
     {
         return $this->hasMany(Booking::class);
     }
+
+    /**
+     * Calculate the discount amount based on the room subtotal.
+     */
+    public function calculateDiscount(float $roomSubtotal): float
+    {
+        if ($this->discount_type === PromotionsDiscountType::PERCENTAGE) {
+            $discountAmount = $roomSubtotal * ($this->discount_value / 100);
+        } else {
+            $discountAmount = min($this->discount_value, $roomSubtotal);
+        }
+
+        return round($discountAmount, 2);
+    }
 }

@@ -3,7 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\BookingStatus;
-use App\Enums\paymentStatus;
+use App\Enums\PaymentStatus;
 use App\Models\Booking;
 use App\Models\Hotel;
 use App\Models\User;
@@ -31,7 +31,7 @@ class BookingFactory extends Factory
             'platform_fee' => fake()->randomFloat(2, 10, 100),
             'total_service_amount' => 0.00,
             'status' => BookingStatus::PENDING,
-            'payment_status' => paymentStatus::PENDING,
+            'payment_status' => PaymentStatus::PENDING,
             'special_request' => fake()->sentence(),
         ];
     }

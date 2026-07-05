@@ -10,6 +10,7 @@ use App\Models\Booking;
 use App\Models\Hotel;
 use App\Models\Review;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 class ReviewController extends Controller
@@ -34,14 +35,9 @@ class ReviewController extends Controller
      *
      * @throws ValidationException
      */
-    public function store(StoreReviewRequest $request, string $bookingRef): ReviewResource
+    public function store(StoreReviewRequest $request, Booking $booking): ReviewResource
     {
-        $booking = Booking::where('booking_ref', $bookingRef)->firstOrFail();
-
-        // 1. Authorization: Only the user who placed the booking can review it
-        if ($booking->user_id !== auth()->id()) {
-            abort(403, 'This action is unauthorized.');
-        }
+        Gate::authorize('review', $booking);
 
         // 2. Booking Status: Must be confirmed or completed
         if (! in_array($booking->status, [BookingStatus::CONFIRMED, BookingStatus::COMPLETED])) {

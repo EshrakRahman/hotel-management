@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Enums\BookingStatus;
-use App\Enums\paymentStatus;
+use App\Enums\PaymentStatus;
 use App\Models\Booking;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +32,7 @@ class ReleaseExpiredHolds extends Command
         $expiredTime = now()->subMinutes(15);
 
         $expiredBookings = Booking::where('status', BookingStatus::PENDING)
-            ->where('payment_status', paymentStatus::PENDING)
+            ->where('payment_status', PaymentStatus::PENDING)
             ->where('created_at', '<=', $expiredTime)
             ->get();
 
@@ -48,7 +48,7 @@ class ReleaseExpiredHolds extends Command
             foreach ($expiredBookings as $booking) {
                 $booking->update([
                     'status' => BookingStatus::CANCELLED,
-                    'payment_status' => paymentStatus::FAILED,
+                    'payment_status' => PaymentStatus::FAILED,
                 ]);
                 $count++;
             }

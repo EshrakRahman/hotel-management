@@ -3,37 +3,27 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\BookingStatus;
-use App\Enums\paymentStatus;
+use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\CreateCheckoutSessionRequest;
 use App\Models\Booking;
 use App\Services\Payments\PaymentGatewayInterface;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class PaymentController extends Controller
 {
     /**
      * Create a checkout session URL for the booking.
      */
-    public function checkoutSession(Request $request, string $bookingRef, PaymentGatewayInterface $gateway): JsonResponse
+    public function checkoutSession(CreateCheckoutSessionRequest $request, Booking $booking, PaymentGatewayInterface $gateway): JsonResponse
     {
-        $request->validate([
-            'success_url' => ['required', 'url'],
-            'cancel_url' => ['required', 'url'],
-        ]);
+        Gate::authorize('pay', $booking);
 
-        $booking = Booking::where('booking_ref', $bookingRef)
-            ->with(['hotel'])
-            ->firstOrFail();
-
-        // Authorize: Only the booking owner or admin can initiate payment
-        $user = auth()->user();
-        if (! $user->hasRole('admin') && $booking->user_id !== $user->id) {
-            abort(403, 'This action is unauthorized.');
-        }
+        $booking->loadMissing('hotel');
 
         // Validate booking status is pending checkout
-        if ($booking->status !== BookingStatus::PENDING || $booking->payment_status !== paymentStatus::PENDING) {
+        if ($booking->status !== BookingStatus::PENDING || $booking->payment_status !== PaymentStatus::PENDING) {
             return response()->json([
                 'message' => 'This booking cannot be processed for payment.',
             ], 422);

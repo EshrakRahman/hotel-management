@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BookingStatus;
-use App\Enums\paymentStatus;
+use App\Enums\PaymentStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -25,7 +25,7 @@ class Booking extends Model
     {
         return [
             'status' => BookingStatus::class,
-            'payment_status' => paymentStatus::class,
+            'payment_status' => PaymentStatus::class,
         ];
     }
 
@@ -62,5 +62,13 @@ class Booking extends Model
     public function review(): HasOne
     {
         return $this->hasOne(Review::class);
+    }
+
+    /**
+     * Get the route key for the model.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'booking_ref';
     }
 }

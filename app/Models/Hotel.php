@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\BookingStatus;
 use App\Enums\HotelStatus;
+use App\Enums\RoomStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -85,5 +87,25 @@ class Hotel extends Model
         });
 
         return $query;
+    }
+
+    /**
+     * Scope a query to only include hotels that have available rooms between the given dates.
+     */
+    public function scopeAvailableBetween(Builder $query, string $checkIn, string $checkOut): Builder
+    {
+        return $query->whereHas('roomTypes', function ($query) use ($checkIn, $checkOut) {
+            $query->whereHas('rooms', function ($q) use ($checkIn, $checkOut) {
+                $q->where('status', RoomStatus::AVAILABLE)
+                    ->whereDoesntHave('bookingItems', function ($bQuery) use ($checkIn, $checkOut) {
+                        $bQuery->where('check_in', '<', $checkOut)
+                            ->where('check_out', '>', $checkIn)
+                            ->whereHas('booking', function ($b) {
+                                $b->whereIn('status', [BookingStatus::CONFIRMED, BookingStatus::PENDING])
+                                    ->where('created_at', '>=', now()->subMinutes(15));
+                            });
+                    });
+            });
+        });
     }
 }

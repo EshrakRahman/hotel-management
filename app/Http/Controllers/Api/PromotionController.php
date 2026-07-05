@@ -2,23 +2,19 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\PromotionsDiscountType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\VerifyPromotionRequest;
 use App\Models\Promotion;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class PromotionController extends Controller
 {
     /**
      * Verify a promotion code and calculate the potential discount.
      */
-    public function verify(Request $request): JsonResponse
+    public function verify(VerifyPromotionRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'promo_code' => ['required', 'string'],
-            'room_subtotal' => ['required', 'numeric', 'min:0'],
-        ]);
+        $validated = $request->validated();
 
         $promoCode = $validated['promo_code'];
         $roomSubtotal = (float) $validated['room_subtotal'];
@@ -37,15 +33,7 @@ class PromotionController extends Controller
         }
 
         // Calculate discount amount
-        $discountAmount = 0.00;
-        if ($promotion->discount_type === PromotionsDiscountType::PERCENTAGE) {
-            $discountAmount = $roomSubtotal * ($promotion->discount_value / 100);
-        } else {
-            $discountAmount = min($promotion->discount_value, $roomSubtotal);
-        }
-
-        // Format to 2 decimal places
-        $discountAmount = round($discountAmount, 2);
+        $discountAmount = $promotion->calculateDiscount($roomSubtotal);
 
         return response()->json([
             'valid' => true,
