@@ -33,6 +33,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/amenities', [AmenityController::class, 'index']);
     Route::get('/room-types/{roomType}/rooms', [RoomController::class, 'index']);
     Route::get('/rooms/{room}', [RoomController::class, 'show']);
+    Route::get('/promotions', [PromotionController::class, 'index']);
     Route::post('/promotions/verify', [PromotionController::class, 'verify']);
     Route::post('/bookings/quote', [BookingController::class, 'quote']);
     Route::get('/hotels/{hotel}/reviews', [ReviewController::class, 'index']);

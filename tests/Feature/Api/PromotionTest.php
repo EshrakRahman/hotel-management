@@ -150,3 +150,69 @@ test('validates required inputs for promotion verification', function () {
     $response->assertStatus(422)
         ->assertJsonValidationErrors(['promo_code', 'room_subtotal']);
 });
+
+test('lists active promotions and filters out inactive, expired, or pending ones', function () {
+    /** @var TestCase $this */
+
+    // Active promotion 1
+    $promo1 = Promotion::factory()->create([
+        'name' => 'Active Promotion 1',
+        'promo_code' => 'ACTIVE1',
+        'is_active' => true,
+        'start_date' => now()->subDay(),
+        'end_date' => now()->addDay(),
+    ]);
+
+    // Active promotion 2
+    $promo2 = Promotion::factory()->create([
+        'name' => 'Active Promotion 2',
+        'promo_code' => 'ACTIVE2',
+        'is_active' => true,
+        'start_date' => now()->subDays(5),
+        'end_date' => now()->addDays(5),
+    ]);
+
+    // Inactive promotion
+    Promotion::factory()->create([
+        'name' => 'Inactive Promotion',
+        'promo_code' => 'INACTIVE_LIST',
+        'is_active' => false,
+        'start_date' => now()->subDay(),
+        'end_date' => now()->addDay(),
+    ]);
+
+    // Expired promotion
+    Promotion::factory()->create([
+        'name' => 'Expired Promotion',
+        'promo_code' => 'EXPIRED_LIST',
+        'is_active' => true,
+        'start_date' => now()->subDays(10),
+        'end_date' => now()->subDays(5),
+    ]);
+
+    // Pending/Not-started promotion
+    Promotion::factory()->create([
+        'name' => 'Pending Promotion',
+        'promo_code' => 'PENDING_LIST',
+        'is_active' => true,
+        'start_date' => now()->addDays(5),
+        'end_date' => now()->addDays(10),
+    ]);
+
+    $response = $this->getJson('/api/v1/promotions');
+
+    $response->assertStatus(200)
+        ->assertJsonCount(2, 'data')
+        ->assertJsonStructure([
+            'data' => [
+                '*' => ['id', 'name', 'promo_code', 'discount_type', 'discount_value', 'start_date', 'end_date'],
+            ],
+        ]);
+
+    $promoIds = collect($response['data'])->pluck('id')->all();
+    expect($promoIds)->toContain($promo1->id)
+        ->toContain($promo2->id)
+        ->not->toContain('INACTIVE_LIST')
+        ->not->toContain('EXPIRED_LIST')
+        ->not->toContain('PENDING_LIST');
+});

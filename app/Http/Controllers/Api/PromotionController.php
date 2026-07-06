@@ -4,11 +4,27 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\VerifyPromotionRequest;
+use App\Http\Resources\Api\PromotionResource;
 use App\Models\Promotion;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class PromotionController extends Controller
 {
+    /**
+     * List all currently active promotions.
+     */
+    public function index(): AnonymousResourceCollection
+    {
+        $promotions = Promotion::where('is_active', true)
+            ->where('start_date', '<=', now())
+            ->where('end_date', '>=', now())
+            ->latest()
+            ->get();
+
+        return PromotionResource::collection($promotions);
+    }
+
     /**
      * Verify a promotion code and calculate the potential discount.
      */
