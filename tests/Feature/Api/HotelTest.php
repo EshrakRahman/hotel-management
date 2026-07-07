@@ -7,8 +7,10 @@ use App\Models\Booking;
 use App\Models\BookingItem;
 use App\Models\Destination;
 use App\Models\Hotel;
+use App\Models\Review;
 use App\Models\Room;
 use App\Models\RoomType;
+use App\Models\User;
 use Tests\TestCase;
 
 test('list all active hotels', function () {
@@ -160,5 +162,93 @@ describe('search hotels', function () {
 
         $response->assertStatus(200)
             ->assertJsonPath('data.room_types.0.available_rooms_count', 1);
+    });
+});
+
+describe('hotel filtering and sorting', function () {
+    beforeEach(function () {
+        // Clear all hotels first to have clean stats for these tests
+        Hotel::query()->delete();
+
+        // Create Hotel A: Cheap (min base price 100), high rating (5.0)
+        $this->hotelA = Hotel::factory()->create(['name' => 'Hotel A Cheap and Good', 'status' => HotelStatus::ACTIVE]);
+        $roomTypeA = RoomType::factory()->create(['hotel_id' => $this->hotelA->id, 'base_price' => 100.00]);
+        // Add review rating 5
+        Review::create([
+            'user_id' => User::factory()->create()->id,
+            'hotel_id' => $this->hotelA->id,
+            'booking_id' => Booking::factory()->create(['hotel_id' => $this->hotelA->id])->id,
+            'rating' => 5,
+            'comment' => 'Great!',
+        ]);
+
+        // Create Hotel B: Expensive (min base price 300), low rating (2.0)
+        $this->hotelB = Hotel::factory()->create(['name' => 'Hotel B Expensive and Bad', 'status' => HotelStatus::ACTIVE]);
+        $roomTypeB = RoomType::factory()->create(['hotel_id' => $this->hotelB->id, 'base_price' => 300.00]);
+        // Add review rating 2
+        Review::create([
+            'user_id' => User::factory()->create()->id,
+            'hotel_id' => $this->hotelB->id,
+            'booking_id' => Booking::factory()->create(['hotel_id' => $this->hotelB->id])->id,
+            'rating' => 2,
+            'comment' => 'Bad!',
+        ]);
+    });
+
+    test('can filter hotels by min_price', function () {
+        /** @var TestCase $this */
+        $response = $this->getJson('/api/v1/hotels?min_price=200');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $this->hotelB->id);
+    });
+
+    test('can filter hotels by max_price', function () {
+        /** @var TestCase $this */
+        $response = $this->getJson('/api/v1/hotels?max_price=150');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $this->hotelA->id);
+    });
+
+    test('can filter hotels by minimum average rating', function () {
+        /** @var TestCase $this */
+        $response = $this->getJson('/api/v1/hotels?rating=4');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $this->hotelA->id);
+    });
+
+    test('can sort hotels by price ascending', function () {
+        /** @var TestCase $this */
+        $response = $this->getJson('/api/v1/hotels?sort=price_asc');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $this->hotelA->id)
+            ->assertJsonPath('data.1.id', $this->hotelB->id);
+    });
+
+    test('can sort hotels by price descending', function () {
+        /** @var TestCase $this */
+        $response = $this->getJson('/api/v1/hotels?sort=price_desc');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $this->hotelB->id)
+            ->assertJsonPath('data.1.id', $this->hotelA->id);
+    });
+
+    test('can sort hotels by rating descending', function () {
+        /** @var TestCase $this */
+        $response = $this->getJson('/api/v1/hotels?sort=rating_desc');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $this->hotelA->id)
+            ->assertJsonPath('data.1.id', $this->hotelB->id);
     });
 });

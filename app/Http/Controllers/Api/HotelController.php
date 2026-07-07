@@ -20,7 +20,7 @@ class HotelController extends Controller
             ->withAvg('reviews', 'rating')
             ->withCount('reviews')
             ->where('status', HotelStatus::ACTIVE)
-            ->filter($request->only(['q', 'destination']));
+            ->filter($request->only(['q', 'destination', 'min_price', 'max_price', 'rating', 'sort']));
 
         if ($request->has(['check_in', 'check_out'])) {
             $checkIn = $request->input('check_in');

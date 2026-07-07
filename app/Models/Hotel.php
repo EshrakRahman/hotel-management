@@ -86,6 +86,54 @@ class Hotel extends Model
             });
         });
 
+        // Price filters
+        $query->when($filters['min_price'] ?? null, function ($query, $minPrice) {
+            $query->whereHas('roomTypes', function ($q) use ($minPrice) {
+                $q->where('base_price', '>=', (float) $minPrice);
+            });
+        });
+
+        $query->when($filters['max_price'] ?? null, function ($query, $maxPrice) {
+            $query->whereHas('roomTypes', function ($q) use ($maxPrice) {
+                $q->where('base_price', '<=', (float) $maxPrice);
+            });
+        });
+
+        // Rating filter (average review rating >= rating)
+        $query->when($filters['rating'] ?? null, function ($query, $rating) {
+            $query->where(function ($q) use ($rating) {
+                $q->whereRaw('(SELECT AVG(rating) FROM reviews WHERE reviews.hotel_id = hotels.id) >= CAST(? AS NUMERIC)', [(float) $rating]);
+            });
+        });
+
+        // Sorting
+        $query->when($filters['sort'] ?? null, function ($query, $sort) {
+            if ($sort === 'price_asc') {
+                $query->orderBy(
+                    RoomType::select('base_price')
+                        ->whereColumn('room_types.hotel_id', 'hotels.id')
+                        ->orderBy('base_price', 'asc')
+                        ->limit(1),
+                    'asc'
+                );
+            } elseif ($sort === 'price_desc') {
+                $query->orderBy(
+                    RoomType::select('base_price')
+                        ->whereColumn('room_types.hotel_id', 'hotels.id')
+                        ->orderBy('base_price', 'desc')
+                        ->limit(1),
+                    'desc'
+                );
+            } elseif ($sort === 'rating_desc') {
+                $query->orderBy(
+                    Review::selectRaw('AVG(rating)')
+                        ->whereColumn('reviews.hotel_id', 'hotels.id')
+                        ->limit(1),
+                    'desc'
+                );
+            }
+        });
+
         return $query;
     }
 
